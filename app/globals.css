@@ -1,26 +1,494 @@
 @import "tailwindcss";
 
+/* ============================================================
+   PIXEL ARCADE — Design System
+   Palette: #11100f (black)  #be001c (red)  #efefe9 (white)
+   ============================================================ */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Core palette — semantic roles */
+  --sq-primary:          #11100f;   /* dominant surface / bg */
+  --sq-secondary:        #be001c;   /* interactive / brand */
+  --sq-accent:           #efefe9;   /* high-contrast text & highlights */
+
+  /* Derived tints — do not change these */
+  --sq-secondary-dark:   #740011;
+  --sq-secondary-light:  #ff5b6e;
+  --sq-accent-dark:      #b9b9b3;
+  --sq-accent-light:     #ffffff;
+  --sq-gray:             #2a2926;   /* dark surface / panel bg */
+
+  /* Legacy aliases — kept for backwards compat */
+  --sq-black:  var(--sq-primary);
+  --sq-red:    var(--sq-secondary);
+  --sq-white:  var(--sq-accent);
+
+  /* Typography */
+  --font-pixel: "Press Start 2P", monospace;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+/* ============================================================
+   BASE
+   ============================================================ */
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  padding: 0;
+  background: var(--sq-black);
+  color: var(--sq-white);
+  font-family: var(--font-pixel);
+  font-size: 10px;
+  line-height: 1.8;
+}
+
+main {
+  padding-bottom: calc(180px + env(safe-area-inset-bottom));
+}
+
+/* Pixel font helper — apply wherever Press Start 2P is needed */
+.pixel {
+  font-family: var(--font-pixel);
+}
+
+/* CRT scanline overlay — add to a fixed ::after on body or a wrapper */
+.pixel-scanlines::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 3px,
+    rgba(0, 0, 0, 0.08) 3px,
+    rgba(0, 0, 0, 0.08) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* ============================================================
+   BEVEL SYSTEM
+   Pixel UI uses 3-layer inset box-shadow to fake a bevel.
+   Light  = inset top-left highlight
+   Dark   = inset bottom-right shadow
+   Drop   = outer hard shadow (black, offset)
+   ============================================================ */
+
+/* --- Bevel: white surface --- */
+.bevel-white {
+  box-shadow:
+    inset -4px -4px 0 var(--sq-white-dark),
+    inset  4px  4px 0 var(--sq-white-light);
+}
+
+/* --- Bevel: red surface --- */
+.bevel-red {
+  box-shadow:
+    inset -4px -4px 0 var(--sq-red-dark),
+    inset  4px  4px 0 var(--sq-red-light);
+}
+
+/* --- Bevel: dark surface --- */
+.bevel-dark {
+  box-shadow:
+    inset -4px -4px 0 #000000,
+    inset  4px  4px 0 var(--sq-gray);
+}
+
+/* ============================================================
+   SCREENS & PANELS
+   ============================================================ */
+
+/* Dark inset panel (game screen, code block, terminal) */
+.pixel-screen {
+  background: var(--sq-gray);
+  border: 4px solid var(--sq-black);
+  padding: 16px;
+  box-shadow:
+    inset -4px -4px 0 #000000,
+    inset  4px  4px 0 #3a3835,
+    6px 6px 0 var(--sq-black);
+}
+
+/* Light raised card */
+.pixel-card {
+  background: var(--sq-white);
+  color: var(--sq-black);
+  border: 3px solid var(--sq-black);
+  padding: 16px;
+  box-shadow:
+    inset -3px -3px 0 var(--sq-white-dark),
+    inset  3px  3px 0 var(--sq-white-light),
+    5px 5px 0 var(--sq-black);
+}
+
+/* Dark card with red accent border */
+.pixel-card-accent {
+  background: var(--sq-black);
+  color: var(--sq-white);
+  border: 3px solid var(--sq-red);
+  padding: 16px;
+  box-shadow:
+    inset -3px -3px 0 #000000,
+    inset  3px  3px 0 var(--sq-gray),
+    5px 5px 0 var(--sq-red);
+}
+
+/* ============================================================
+   NAVIGATION DOCK
+   ============================================================ */
+
+.pixel-dock {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.25fr 1fr 1fr;
+  align-items: center;
+  gap: 8px;
+  border: 4px solid var(--sq-primary);
+  background: var(--sq-accent);
+  padding: 8px;
+  box-shadow: 6px 6px 0 var(--sq-primary);
+}
+
+/* Standard nav icon */
+.pixel-nav-icon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 52px;
+  border: 3px solid var(--sq-primary);
+  background: var(--sq-accent);
+  color: var(--sq-primary);
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  letter-spacing: 0.5px;
+  image-rendering: pixelated;
+  cursor: pointer;
+  box-shadow:
+    inset -4px -4px 0 var(--sq-accent-dark),
+    inset  4px  4px 0 var(--sq-accent-light);
+  transition:
+    transform    100ms ease,
+    background   100ms ease,
+    color        100ms ease,
+    box-shadow   100ms ease;
+}
+
+/* Hover: secondary (red) fill — mirrors button behaviour */
+.pixel-nav-icon:hover {
+  transform: translateY(-2px);
+  background: var(--sq-secondary);
+  color: var(--sq-accent);
+  box-shadow:
+    inset -4px -4px 0 var(--sq-secondary-dark),
+    inset  4px  4px 0 var(--sq-secondary-light);
+}
+
+/* Active nav state */
+.pixel-nav-icon.active,
+.pixel-nav-active {
+  background: var(--sq-secondary);
+  color: var(--sq-accent);
+  box-shadow:
+    inset -4px -4px 0 var(--sq-secondary-dark),
+    inset  4px  4px 0 var(--sq-secondary-light);
+}
+
+/* Raised centre action button */
+.pixel-nav-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 64px;
+  border: 4px solid var(--sq-primary);
+  background: var(--sq-secondary);
+  color: var(--sq-accent);
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  letter-spacing: 0.5px;
+  image-rendering: pixelated;
+  cursor: pointer;
+  box-shadow:
+    inset -5px -5px 0 var(--sq-secondary-dark),
+    inset  5px  5px 0 var(--sq-secondary-light),
+    0 0 0 3px var(--sq-primary);
+  transform: translateY(-14px);
+  transition:
+    transform    100ms ease,
+    background   100ms ease;
+}
+
+.pixel-nav-main:hover {
+  transform: translateY(-18px);
+  background: #d80022;
+}
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+
+/*
+  Button colour logic:
+    default  → primary bg, accent text  — hover: secondary (red) fill
+    primary  → secondary bg, accent text — hover: deeper red
+    ghost    → transparent, accent border — hover: secondary (red) fill
+*/
+
+.pixel-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 3px solid var(--sq-primary);
+  background: var(--sq-primary);
+  color: var(--sq-accent);
+  font-family: var(--font-pixel);
+  font-size: 9px;
+  letter-spacing: 1px;
+  padding: 10px 16px;
+  cursor: pointer;
+  box-shadow:
+    inset -4px -4px 0 #000000,
+    inset  4px  4px 0 var(--sq-gray),
+    4px 4px 0 var(--sq-accent-dark);
+  transition:
+    transform    100ms ease,
+    box-shadow   100ms ease,
+    background   100ms ease,
+    color        100ms ease;
+}
+
+/* Hover: secondary (red) fill, shadow collapses inward */
+.pixel-btn:hover {
+  background: var(--sq-secondary);
+  color: var(--sq-accent);
+  transform: translate(2px, 2px);
+  box-shadow:
+    inset -4px -4px 0 var(--sq-secondary-dark),
+    inset  4px  4px 0 var(--sq-secondary-light),
+    2px 2px 0 var(--sq-accent-dark);
+}
+
+.pixel-btn:active {
+  transform: translate(4px, 4px);
+  box-shadow:
+    inset -4px -4px 0 var(--sq-secondary-dark),
+    inset  4px  4px 0 var(--sq-secondary-light);
+}
+
+/* Primary — secondary surface, deeper red on hover */
+.pixel-btn-primary {
+  background: var(--sq-secondary);
+  color: var(--sq-accent);
+  border-color: var(--sq-primary);
+  box-shadow:
+    inset -4px -4px 0 var(--sq-secondary-dark),
+    inset  4px  4px 0 var(--sq-secondary-light),
+    4px 4px 0 var(--sq-primary);
+}
+
+.pixel-btn-primary:hover {
+  background: var(--sq-secondary-dark);
+  color: var(--sq-accent);
+  box-shadow:
+    inset -4px -4px 0 #3d0009,
+    inset  4px  4px 0 var(--sq-secondary),
+    2px 2px 0 var(--sq-primary);
+}
+
+.pixel-btn-primary:active {
+  transform: translate(4px, 4px);
+  box-shadow:
+    inset -4px -4px 0 #3d0009,
+    inset  4px  4px 0 var(--sq-secondary);
+}
+
+/* Ghost — accent outline on dark bg, red fill on hover */
+.pixel-btn-ghost {
+  background: transparent;
+  color: var(--sq-accent);
+  border-color: var(--sq-accent);
+  box-shadow:
+    inset -4px -4px 0 rgba(0, 0, 0, 0.3),
+    inset  4px  4px 0 rgba(255, 255, 255, 0.06),
+    4px 4px 0 rgba(185, 185, 179, 0.25);
+}
+
+.pixel-btn-ghost:hover {
+  background: var(--sq-secondary);
+  border-color: var(--sq-secondary);
+  color: var(--sq-accent);
+  box-shadow:
+    inset -4px -4px 0 var(--sq-secondary-dark),
+    inset  4px  4px 0 var(--sq-secondary-light),
+    2px 2px 0 rgba(185, 185, 179, 0.25);
+}
+
+.pixel-btn-ghost:active {
+  transform: translate(4px, 4px);
+  box-shadow:
+    inset -4px -4px 0 var(--sq-secondary-dark),
+    inset  4px  4px 0 var(--sq-secondary-light);
+}
+
+/* ============================================================
+   BADGES & TAGS
+   ============================================================ */
+
+.pixel-badge {
+  display: inline-block;
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  letter-spacing: 1px;
+  padding: 4px 8px;
+  border: 2px solid var(--sq-black);
+  background: var(--sq-white);
+  color: var(--sq-black);
+  box-shadow: 2px 2px 0 var(--sq-black);
+}
+
+.pixel-badge-red {
+  background: var(--sq-red);
+  color: var(--sq-white);
+  border-color: var(--sq-red-dark);
+  box-shadow: 2px 2px 0 var(--sq-red-dark);
+}
+
+.pixel-badge-dark {
+  background: var(--sq-gray);
+  color: var(--sq-white);
+  border-color: var(--sq-black);
+  box-shadow: 2px 2px 0 var(--sq-black);
+}
+
+/* ============================================================
+   FORM INPUTS
+   ============================================================ */
+
+.pixel-input {
+  background: var(--sq-black);
+  color: var(--sq-white);
+  border: 3px solid var(--sq-white);
+  font-family: var(--font-pixel);
+  font-size: 9px;
+  padding: 10px 12px;
+  width: 100%;
+  outline: none;
+  box-shadow: inset 3px 3px 0 rgba(0, 0, 0, 0.5);
+  caret-color: var(--sq-red);
+  transition: border-color 100ms;
+}
+
+.pixel-input:focus {
+  border-color: var(--sq-red);
+  box-shadow:
+    inset 3px 3px 0 rgba(0, 0, 0, 0.5),
+    0 0 0 2px var(--sq-red);
+}
+
+.pixel-input::placeholder {
+  color: var(--sq-gray);
+}
+
+/* ============================================================
+   PROGRESS BAR
+   ============================================================ */
+
+.pixel-progress {
+  border: 3px solid var(--sq-black);
+  background: var(--sq-black);
+  height: 20px;
+  box-shadow:
+    inset 2px 2px 0 #000000,
+    inset -2px -2px 0 var(--sq-gray);
+  overflow: hidden;
+}
+
+.pixel-progress-fill {
+  height: 100%;
+  background: var(--sq-red);
+  box-shadow:
+    inset -3px 0 0 var(--sq-red-dark),
+    inset  3px 0 0 var(--sq-red-light);
+  /* Stepped transition gives a chunky pixel feel */
+  transition: width 500ms steps(20);
+}
+
+/* ============================================================
+   STAT BLOCK
+   ============================================================ */
+
+.pixel-stat {
+  text-align: center;
+  padding: 12px 8px;
+}
+
+.pixel-stat-value {
+  display: block;
+  font-family: var(--font-pixel);
+  font-size: 18px;
+  color: var(--sq-red);
+  text-shadow: 3px 3px 0 var(--sq-red-dark);
+  margin-bottom: 8px;
+}
+
+.pixel-stat-label {
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  color: var(--sq-white-dark);
+  letter-spacing: 1px;
+}
+
+/* ============================================================
+   DIVIDERS
+   ============================================================ */
+
+.pixel-divider {
+  border: none;
+  border-top: 4px solid var(--sq-black);
+  box-shadow: 0 2px 0 var(--sq-gray);
+  margin: 16px 0;
+}
+
+/* ============================================================
+   ANIMATIONS
+   ============================================================ */
+
+/* Blinking block cursor */
+@keyframes pixel-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+.pixel-cursor::after {
+  content: "█";
+  color: var(--sq-red);
+  animation: pixel-blink 1s step-end infinite;
+}
+
+/* Marquee / ticker scroll */
+@keyframes pixel-scroll {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(-100%); }
+}
+
+.pixel-ticker {
+  overflow: hidden;
+  border-top: 3px solid var(--sq-black);
+  border-bottom: 3px solid var(--sq-black);
+  background: var(--sq-red);
+  color: var(--sq-white);
+  padding: 6px 0;
+  white-space: nowrap;
+}
+
+.pixel-ticker-inner {
+  display: inline-block;
+  animation: pixel-scroll 18s linear infinite;
+  font-family: var(--font-pixel);
+  font-size: 9px;
+  letter-spacing: 2px;
 }
