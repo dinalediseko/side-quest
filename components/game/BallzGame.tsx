@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import type Phaser from "phaser";
 
 import { submitScore } from "@/firebase/score";
 import { useAuthStore } from "@/store/authStore";
@@ -9,9 +10,9 @@ export default function BallzGame() {
   const user = useAuthStore((s) => s.user);
   const profile = useAuthStore((s) => s.profile);
 
-  const gameRef = useRef<any>(null);
-  const userRef = useRef<any>(null);
-  const profileRef = useRef<any>(null);
+  const gameRef = useRef<Phaser.Game | null>(null);
+  const userRef = useRef<typeof user>(user);
+  const profileRef = useRef<typeof profile>(profile);
 
   useEffect(() => {
     userRef.current = user;
@@ -22,14 +23,14 @@ export default function BallzGame() {
     let destroyed = false;
 
     async function init() {
-      const Phaser = (await import("phaser")).default;
+      const PhaserModule = (await import("phaser")).default;
       const { ballzConfig } = await import("@/phaser/ballz/config");
 
       if (destroyed || gameRef.current) {
         return;
       }
 
-      gameRef.current = new Phaser.Game(ballzConfig);
+      gameRef.current = new PhaserModule.Game(ballzConfig);
     }
 
     init();
@@ -60,7 +61,9 @@ export default function BallzGame() {
       const currentUser = userRef.current;
       const currentProfile = profileRef.current;
 
-      if (!currentUser) return;
+      if (!currentUser) {
+        return;
+      }
 
       try {
         const username = currentProfile?.username || "Player";

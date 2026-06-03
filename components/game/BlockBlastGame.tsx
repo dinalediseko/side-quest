@@ -1,17 +1,22 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import type Phaser from "phaser";
 
-import { getGameLeaderboard, getPlayerRank, submitScore } from "@/firebase/score";
+import {
+  getGameLeaderboard,
+  getPlayerRank,
+  submitScore,
+} from "@/firebase/score";
 import { useAuthStore } from "@/store/authStore";
 
 export default function BlockBlastGame() {
   const user = useAuthStore((s) => s.user);
   const profile = useAuthStore((s) => s.profile);
 
-  const gameRef = useRef<any>(null);
-  const userRef = useRef<any>(null);
-  const profileRef = useRef<any>(null);
+  const gameRef = useRef<Phaser.Game | null>(null);
+  const userRef = useRef<typeof user>(user);
+  const profileRef = useRef<typeof profile>(profile);
 
   useEffect(() => {
     userRef.current = user;
@@ -22,14 +27,14 @@ export default function BlockBlastGame() {
     let destroyed = false;
 
     async function init() {
-      const Phaser = (await import("phaser")).default;
+      const PhaserModule = (await import("phaser")).default;
       const { blockBlastConfig } = await import("@/phaser/blockblast/config");
 
       if (destroyed || gameRef.current) {
         return;
       }
 
-      gameRef.current = new Phaser.Game(blockBlastConfig);
+      gameRef.current = new PhaserModule.Game(blockBlastConfig);
     }
 
     init();
@@ -47,9 +52,10 @@ export default function BlockBlastGame() {
   useEffect(() => {
     async function scoreListener(event: Event) {
       const customEvent = event as CustomEvent<{ score?: number }>;
+
       const score = Math.max(
         0,
-        Math.floor(Number(customEvent.detail?.score || 0))
+        Math.floor(Number(customEvent.detail?.score || 0)),
       );
 
       const currentUser = userRef.current;

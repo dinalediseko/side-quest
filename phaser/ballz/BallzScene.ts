@@ -13,7 +13,7 @@ type Ball = {
   vx: number;
   vy: number;
   active: boolean;
-  view?: Phaser.GameObjects.Circle;
+  view?: Phaser.GameObjects.Arc;
 };
 
 export default class BallzScene extends Phaser.Scene {

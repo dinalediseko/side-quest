@@ -1,51 +1,44 @@
+import { User } from "firebase/auth";
 import { create } from "zustand";
 
 interface Profile {
   username?: string;
-
   email?: string;
 
   streak?: number;
+  currentStreak?: number;
 
   longestStreak?: number;
+  bestStreak?: number;
 }
 
 interface AuthStore {
-  user: any;
-
+  user: User | null | undefined;
   profile: Profile | null;
-
   loading: boolean;
 
-  setUser: (u: any) => void;
-
-  setProfile: (p: Profile | null) => void;
-
-  setLoading: (v: boolean) => void;
+  setUser: (user: User | null | undefined) => void;
+  setProfile: (profile: Profile | null) => void;
+  setLoading: (loading: boolean) => void;
 }
 
-export const useAuthStore =
-create<AuthStore>((set)=>({
-
+export const useAuthStore = create<AuthStore>((set) => ({
   user: undefined,
-
   profile: null,
+  loading: true,
 
-  loading:true,
+  setUser: (user) =>
+    set({
+      user,
+    }),
 
-  setUser:(user)=>
-  set({
-    user
-  }),
+  setProfile: (profile) =>
+    set({
+      profile,
+    }),
 
-  setProfile:(profile)=>
-  set({
-    profile
-  }),
-
-  setLoading:(loading)=>
-  set({
-    loading
-  })
-
+  setLoading: (loading) =>
+    set({
+      loading,
+    }),
 }));
