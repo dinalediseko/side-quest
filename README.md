@@ -1,36 +1,133 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SideQuest
 
-## Getting Started
+SideQuest is a retro mini-arcade built as part of my portfolio. It turns a simple portfolio interaction into a playable experience where visitors can explore mini-games, sign in, save scores, build streaks, and compete on leaderboards.
 
-First, run the development server:
+The project was created to show that I do not only design interfaces — I build interactive digital products with real functionality, playful UX, authentication, game logic, and cloud-based data.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+---
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Live Site
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+[Visit SideQuest](https://dseikou-side-quest.netlify.app)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+---
 
-## Learn More
+## Portfolio
 
-To learn more about Next.js, take a look at the following resources:
+[View Main Portfolio](https://portfolio.dseikou.co.za/)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Features
 
-## Deploy on Vercel
+- Retro pixel-inspired interface
+- Mobile-friendly game layout
+- Firebase authentication
+- Player profiles
+- Personal best scores
+- Global leaderboards
+- Daily streak tracking
+- Multiple playable mini-games
+- Phaser-powered game scenes
+- Responsive Next.js app
+- Deployed on Netlify
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Games
+
+### Flappy Bird
+
+Fly through the pipes and survive as long as possible.
+
+### Block Blast
+
+Place blocks, clear lines, and keep the board alive.
+
+### Tetris
+
+Stack falling blocks and clear rows for the highest score.
+
+### Snake
+
+Eat, grow, and avoid crashing into yourself or the walls.
+
+### 2048
+
+Merge matching tiles to build the biggest number possible.
+
+### Ballz
+
+Aim balls, break bricks, and stop them from reaching the bottom.
+
+---
+
+## Tech Stack
+
+- Next.js
+- React
+- TypeScript
+- Tailwind CSS
+- Phaser
+- Zustand
+- Firebase Auth
+- Firebase Firestore
+- Netlify
+
+---
+
+## Project Structure
+
+```txt
+side-quests
+├── app
+│   ├── games
+│   │   └── [slug]
+│   │       └── page.tsx
+│   ├── leaderboard
+│   │   └── page.tsx
+│   ├── profile
+│   │   └── page.tsx
+│   ├── login
+│   │   └── page.tsx
+│   ├── signup
+│   │   └── page.tsx
+│   ├── globals.css
+│   ├── layout.tsx
+│   └── page.tsx
+│
+├── components
+│   ├── auth
+│   ├── game
+│   ├── leaderboard
+│   ├── profile
+│   └── ui
+│
+├── config
+│   └── games.ts
+│
+├── firebase
+│   ├── auth.ts
+│   ├── config.ts
+│   ├── leaderboard.ts
+│   ├── score.ts
+│   ├── streak.ts
+│   ├── streakLeaderboard.ts
+│   └── user.ts
+│
+├── phaser
+│   ├── ballz
+│   ├── blockblast
+│   ├── flappy
+│   ├── snake
+│   ├── tetris
+│   └── twenty48
+│
+├── store
+│   └── authStore.ts
+│
+├── types
+│   └── game.ts
+│
+└── utils
+    └── authState.ts
