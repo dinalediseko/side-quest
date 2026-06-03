@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 
 type Cell = number | null;
+type Direction = "UP" | "DOWN" | "LEFT" | "RIGHT";
 
 type Piece = {
     shape: number[][];
@@ -87,6 +88,7 @@ export default class TetrisScene extends Phaser.Scene {
 
     private fallTimer?: Phaser.Time.TimerEvent;
     private gameOver = false;
+    private isResolvingLines = false;
 
     private gridX = 0;
     private gridY = 210;
@@ -105,6 +107,7 @@ export default class TetrisScene extends Phaser.Scene {
         this.score = 0;
         this.lines = 0;
         this.gameOver = false;
+        this.isResolvingLines = false;
 
         this.activePiece = null;
         this.nextPiece = null;
@@ -117,7 +120,7 @@ export default class TetrisScene extends Phaser.Scene {
         this.pointerStartedOnBoard = false;
 
         this.board = Array.from({ length: this.ROWS }, () =>
-            Array.from({ length: this.COLS }, () => null)
+            Array.from({ length: this.COLS }, () => null),
         );
 
         this.drawBackground();
@@ -138,6 +141,7 @@ export default class TetrisScene extends Phaser.Scene {
 
         this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
             this.stopFallTimer();
+            this.clearRenderedObjects();
         });
     }
 
@@ -147,7 +151,7 @@ export default class TetrisScene extends Phaser.Scene {
             this.GAME_HEIGHT / 2,
             this.GAME_WIDTH,
             this.GAME_HEIGHT,
-            0x11100f
+            0x11100f,
         );
 
         this.add
@@ -161,7 +165,7 @@ export default class TetrisScene extends Phaser.Scene {
             .setOrigin(0.5);
 
         this.add
-            .text(this.GAME_WIDTH / 2, 120, "TAP BOARD. SWIPE BOARD.", {
+            .text(this.GAME_WIDTH / 2, 120, "SWIPE BOARD OR USE A/B CONTROLS.", {
                 fontSize: "22px",
                 color: "#b9b9b3",
                 fontFamily: "monospace",
@@ -201,7 +205,7 @@ export default class TetrisScene extends Phaser.Scene {
                 this.COLS * this.CELL_SIZE + 18,
                 this.ROWS * this.CELL_SIZE + 18,
                 0x2a2926,
-                0.85
+                0.85,
             )
             .setStrokeStyle(6, 0xefefe9)
             .setDepth(1);
@@ -239,7 +243,7 @@ export default class TetrisScene extends Phaser.Scene {
 
     private setupTouchControls() {
         this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
-            if (this.gameOver) return;
+            if (this.gameOver || this.isResolvingLines) return;
 
             this.pointerStartedOnBoard = this.isPointerOnBoard(pointer.x, pointer.y);
 
@@ -252,7 +256,7 @@ export default class TetrisScene extends Phaser.Scene {
         });
 
         this.input.on("pointerup", (pointer: Phaser.Input.Pointer) => {
-            if (this.gameOver) return;
+            if (this.gameOver || this.isResolvingLines) return;
             if (!this.pointerStartedOnBoard) return;
 
             this.pointerStartedOnBoard = false;
@@ -293,51 +297,73 @@ export default class TetrisScene extends Phaser.Scene {
         const boardTop = this.gridY;
         const boardBottom = this.gridY + this.ROWS * this.CELL_SIZE;
 
-        return x >= boardLeft && x <= boardRight && y >= boardTop && y <= boardBottom;
+        return (
+            x >= boardLeft &&
+            x <= boardRight &&
+            y >= boardTop &&
+            y <= boardBottom
+        );
     }
 
     private createControls() {
-        const y = 1245;
+        const dpadX = 270;
+        const dpadY = 1245;
+        const offset = 68;
 
-        this.createControlButton(170, y, "LEFT", () => {
+        this.add
+            .rectangle(dpadX, dpadY, 76, 76, 0x11100f)
+            .setStrokeStyle(5, 0xb9b9b3)
+            .setDepth(39);
+
+        this.createDpadButton(dpadX - offset, dpadY, "LEFT", () => {
             this.movePiece(0, -1);
         });
 
-        this.createControlButton(370, y, "ROTATE", () => {
-            this.rotatePiece();
-        });
-
-        this.createControlButton(570, y, "RIGHT", () => {
+        this.createDpadButton(dpadX + offset, dpadY, "RIGHT", () => {
             this.movePiece(0, 1);
         });
 
-        this.createControlButton(770, y, "DROP", () => {
+        this.createDpadButton(dpadX, dpadY + offset, "DOWN", () => {
+            this.softDrop();
+        });
+
+        this.createActionButton(650, 1225, "A", "ROTATE", () => {
+            this.rotatePiece();
+        });
+
+        this.createActionButton(790, 1290, "B", "DROP", () => {
             this.hardDrop();
         });
     }
 
-    private createControlButton(
+    private createDpadButton(
         x: number,
         y: number,
-        label: string,
-        action: () => void
+        direction: Direction,
+        action: () => void,
     ) {
         const button = this.add
-            .rectangle(x, y, 170, 72, 0x2a2926)
+            .rectangle(x, y, 76, 76, 0x2a2926)
             .setStrokeStyle(5, 0xb9b9b3)
             .setInteractive({ useHandCursor: true })
             .setDepth(40);
 
-        this.add
-            .text(x, y, label, {
-                fontSize: "18px",
-                color: "#efefe9",
-                fontFamily: "monospace",
-                stroke: "#000000",
-                strokeThickness: 4,
-            })
-            .setOrigin(0.5)
+        const arrow = this.add
+            .triangle(x, y, 0, -18, 22, 18, -22, 18, 0xefefe9)
+            .setStrokeStyle(3, 0x11100f)
             .setDepth(41);
+
+        if (direction === "RIGHT") {
+            arrow.setRotation(Math.PI / 2);
+        }
+
+        if (direction === "DOWN") {
+            arrow.setRotation(Math.PI);
+        }
+
+        if (direction === "LEFT") {
+            arrow.setRotation(-Math.PI / 2);
+        }
 
         button.on("pointerover", () => {
             button.setFillStyle(0x11100f);
@@ -353,15 +379,86 @@ export default class TetrisScene extends Phaser.Scene {
                 _pointer: Phaser.Input.Pointer,
                 _localX: number,
                 _localY: number,
-                event: Phaser.Types.Input.EventData
+                event: Phaser.Types.Input.EventData,
             ) => {
                 event.stopPropagation();
 
-                if (this.gameOver) return;
+                if (this.gameOver || this.isResolvingLines) return;
 
                 this.pointerStartedOnBoard = false;
+
+                this.tweens.add({
+                    targets: [button, arrow],
+                    scale: 0.88,
+                    duration: 55,
+                    yoyo: true,
+                    ease: "Quad.easeOut",
+                });
+
                 action();
-            }
+            },
+        );
+    }
+
+    private createActionButton(
+        x: number,
+        y: number,
+        label: string,
+        caption: string,
+        action: () => void,
+    ) {
+        const button = this.add
+            .circle(x, y, 42, 0xbe001c)
+            .setStrokeStyle(6, 0xefefe9)
+            .setInteractive({ useHandCursor: true })
+            .setDepth(40);
+
+        const labelText = this.add
+            .text(x, y - 2, label, {
+                fontSize: "28px",
+                color: "#efefe9",
+                fontFamily: "monospace",
+                stroke: "#000000",
+                strokeThickness: 5,
+            })
+            .setOrigin(0.5)
+            .setDepth(41);
+
+        this.add
+            .text(x, y + 62, caption, {
+                fontSize: "16px",
+                color: "#b9b9b3",
+                fontFamily: "monospace",
+                stroke: "#000000",
+                strokeThickness: 4,
+            })
+            .setOrigin(0.5)
+            .setDepth(41);
+
+        button.on(
+            "pointerdown",
+            (
+                _pointer: Phaser.Input.Pointer,
+                _localX: number,
+                _localY: number,
+                event: Phaser.Types.Input.EventData,
+            ) => {
+                event.stopPropagation();
+
+                if (this.gameOver || this.isResolvingLines) return;
+
+                this.pointerStartedOnBoard = false;
+
+                this.tweens.add({
+                    targets: [button, labelText],
+                    scale: 0.88,
+                    duration: 55,
+                    yoyo: true,
+                    ease: "Quad.easeOut",
+                });
+
+                action();
+            },
         );
     }
 
@@ -412,7 +509,7 @@ export default class TetrisScene extends Phaser.Scene {
     }
 
     private tickDown() {
-        if (this.gameOver || !this.activePiece) return;
+        if (this.gameOver || !this.activePiece || this.isResolvingLines) return;
 
         if (this.canPlace(this.activePiece, 1, 0)) {
             this.activePiece.row++;
@@ -421,12 +518,11 @@ export default class TetrisScene extends Phaser.Scene {
         }
 
         this.lockPiece();
-        this.clearLines();
-        this.spawnPiece();
+        this.resolveAfterLock();
     }
 
     private softDrop() {
-        if (this.gameOver || !this.activePiece) return;
+        if (this.gameOver || !this.activePiece || this.isResolvingLines) return;
 
         if (this.canPlace(this.activePiece, 1, 0)) {
             this.activePiece.row++;
@@ -440,7 +536,7 @@ export default class TetrisScene extends Phaser.Scene {
     }
 
     private hardDrop() {
-        if (this.gameOver || !this.activePiece) return;
+        if (this.gameOver || !this.activePiece || this.isResolvingLines) return;
 
         let dropDistance = 0;
 
@@ -453,14 +549,63 @@ export default class TetrisScene extends Phaser.Scene {
         this.updateHUD();
 
         this.lockPiece();
-        this.clearLines();
-        this.spawnPiece();
-
         this.showNotice("DROP", "#efefe9");
+        this.resolveAfterLock();
+    }
+
+    private resolveAfterLock() {
+        const rowsToClear = this.getRowsToClear();
+
+        if (rowsToClear.length === 0) {
+            this.spawnPiece();
+            this.render();
+            return;
+        }
+
+        this.isResolvingLines = true;
+
+        this.animateLineClear(rowsToClear, () => {
+            rowsToClear
+                .sort((a, b) => b - a)
+                .forEach((row) => {
+                    this.board.splice(row, 1);
+                    this.board.unshift(Array.from({ length: this.COLS }, () => null));
+                });
+
+            const linesCleared = rowsToClear.length;
+
+            this.lines += linesCleared;
+
+            const scoreByLines = [0, 100, 300, 500, 800];
+            this.score += scoreByLines[linesCleared] || 1000;
+
+            this.updateHUD();
+            this.showNotice(`CLEAR x${linesCleared}`, "#efefe9");
+            this.cameras.main.shake(140, 0.006);
+
+            this.isResolvingLines = false;
+
+            this.spawnPiece();
+            this.render();
+        });
+    }
+
+    private getRowsToClear() {
+        const rowsToClear: number[] = [];
+
+        for (let row = this.ROWS - 1; row >= 0; row--) {
+            const isFull = this.board[row].every((cell) => cell !== null);
+
+            if (isFull) {
+                rowsToClear.push(row);
+            }
+        }
+
+        return rowsToClear;
     }
 
     private movePiece(rowOffset: number, colOffset: number) {
-        if (this.gameOver || !this.activePiece) return;
+        if (this.gameOver || !this.activePiece || this.isResolvingLines) return;
 
         if (this.canPlace(this.activePiece, rowOffset, colOffset)) {
             this.activePiece.row += rowOffset;
@@ -469,11 +614,12 @@ export default class TetrisScene extends Phaser.Scene {
             return;
         }
 
+        this.showNotice("BLOCKED", "#be001c");
         this.cameras.main.shake(45, 0.002);
     }
 
     private rotatePiece() {
-        if (this.gameOver || !this.activePiece) return;
+        if (this.gameOver || !this.activePiece || this.isResolvingLines) return;
 
         const rotated = this.rotateMatrix(this.activePiece.shape);
 
@@ -512,6 +658,7 @@ export default class TetrisScene extends Phaser.Scene {
             return;
         }
 
+        this.showNotice("NO ROTATE", "#be001c");
         this.cameras.main.shake(45, 0.002);
     }
 
@@ -583,39 +730,159 @@ export default class TetrisScene extends Phaser.Scene {
         this.activePiece = null;
     }
 
-    private clearLines() {
-        const rowsToClear: number[] = [];
+    private render() {
+        this.clearBlockViews();
 
-        for (let row = this.ROWS - 1; row >= 0; row--) {
-            const isFull = this.board[row].every((cell) => cell !== null);
+        this.renderBoardCells();
+        this.renderActivePiece();
+    }
 
-            if (isFull) {
-                rowsToClear.push(row);
+    private renderBoardCells() {
+        for (let row = 0; row < this.ROWS; row++) {
+            for (let col = 0; col < this.COLS; col++) {
+                const x = this.gridX + col * this.CELL_SIZE;
+                const y = this.gridY + row * this.CELL_SIZE;
+
+                const backgroundCell = this.add
+                    .rectangle(
+                        x,
+                        y,
+                        this.CELL_SIZE - 3,
+                        this.CELL_SIZE - 3,
+                        0x11100f,
+                        0.45,
+                    )
+                    .setOrigin(0)
+                    .setStrokeStyle(1, 0x2a2926)
+                    .setDepth(2);
+
+                this.blockViews.push(backgroundCell);
+
+                const cellColor = this.board[row][col];
+
+                if (cellColor !== null) {
+                    const block = this.createBeveledBlock(
+                        x + this.CELL_SIZE / 2,
+                        y + this.CELL_SIZE / 2,
+                        this.CELL_SIZE - 4,
+                        cellColor,
+                        10,
+                    );
+
+                    this.blockViews.push(block);
+                }
             }
         }
+    }
 
-        if (rowsToClear.length === 0) return;
+    private renderActivePiece() {
+        if (!this.activePiece) return;
 
-        this.animateLineClear(rowsToClear, () => {
-            rowsToClear
-                .sort((a, b) => b - a)
-                .forEach((row) => {
-                    this.board.splice(row, 1);
-                    this.board.unshift(Array.from({ length: this.COLS }, () => null));
-                });
+        this.renderGhostPiece();
 
-            const linesCleared = rowsToClear.length;
+        this.activePiece.shape.forEach((shapeRow, row) => {
+            shapeRow.forEach((value, col) => {
+                if (!value || !this.activePiece) return;
 
-            this.lines += linesCleared;
+                const boardRow = this.activePiece.row + row;
+                const boardCol = this.activePiece.col + col;
 
-            const scoreByLines = [0, 100, 300, 500, 800];
-            this.score += scoreByLines[linesCleared] || 1000;
+                if (boardRow < 0) return;
 
-            this.updateHUD();
-            this.showNotice(`CLEAR x${linesCleared}`, "#efefe9");
-            this.cameras.main.shake(140, 0.006);
+                const x = this.gridX + boardCol * this.CELL_SIZE;
+                const y = this.gridY + boardRow * this.CELL_SIZE;
 
-            this.render();
+                const block = this.createBeveledBlock(
+                    x + this.CELL_SIZE / 2,
+                    y + this.CELL_SIZE / 2,
+                    this.CELL_SIZE - 4,
+                    this.activePiece.color,
+                    25,
+                );
+
+                this.blockViews.push(block);
+            });
+        });
+    }
+
+    private renderGhostPiece() {
+        if (!this.activePiece) return;
+
+        const ghostPiece: Piece = {
+            ...this.activePiece,
+            shape: this.activePiece.shape.map((row) => [...row]),
+        };
+
+        while (this.canPlace(ghostPiece, 1, 0)) {
+            ghostPiece.row++;
+        }
+
+        ghostPiece.shape.forEach((shapeRow, row) => {
+            shapeRow.forEach((value, col) => {
+                if (!value) return;
+
+                const boardRow = ghostPiece.row + row;
+                const boardCol = ghostPiece.col + col;
+
+                if (boardRow < 0) return;
+
+                const x = this.gridX + boardCol * this.CELL_SIZE;
+                const y = this.gridY + boardRow * this.CELL_SIZE;
+
+                const ghost = this.add
+                    .rectangle(
+                        x + this.CELL_SIZE / 2,
+                        y + this.CELL_SIZE / 2,
+                        this.CELL_SIZE - 8,
+                        this.CELL_SIZE - 8,
+                        0xefefe9,
+                        0.18,
+                    )
+                    .setStrokeStyle(3, 0xbe001c)
+                    .setDepth(12);
+
+                this.blockViews.push(ghost);
+            });
+        });
+    }
+
+    private renderNextPreview() {
+        this.clearNextPreviewViews();
+
+        if (!this.nextPiece) return;
+
+        const previewCellSize = 30;
+
+        const shape = this.nextPiece.shape;
+        const shapeWidth = shape[0].length * previewCellSize;
+        const shapeHeight = shape.length * previewCellSize;
+
+        shape.forEach((shapeRow, row) => {
+            shapeRow.forEach((value, col) => {
+                if (!value || !this.nextPiece) return;
+
+                const x =
+                    this.NEXT_BOX_X -
+                    shapeWidth / 2 +
+                    col * previewCellSize +
+                    previewCellSize / 2;
+
+                const y =
+                    this.NEXT_BOX_Y -
+                    shapeHeight / 2 +
+                    row * previewCellSize +
+                    previewCellSize / 2;
+
+                const block = this.createBeveledBlock(
+                    x,
+                    y,
+                    previewCellSize - 4,
+                    this.nextPiece.color,
+                    35,
+                );
+
+                this.nextPreviewViews.push(block);
+            });
         });
     }
 
@@ -634,7 +901,7 @@ export default class TetrisScene extends Phaser.Scene {
                         this.CELL_SIZE - 4,
                         this.CELL_SIZE - 4,
                         0xefefe9,
-                        0.9
+                        0.9,
                     )
                     .setStrokeStyle(3, 0xbe001c)
                     .setScale(0.2)
@@ -671,126 +938,13 @@ export default class TetrisScene extends Phaser.Scene {
     private updateHUD() {
         this.scoreText.setText(`SCORE ${this.score}`);
         this.linesText.setText(`LINES ${this.lines}`);
-    }
 
-    private render() {
-        this.blockViews.forEach((block) => {
-            block.destroy();
-        });
-
-        this.blockViews = [];
-
-        this.renderBoardCells();
-        this.renderActivePiece();
-    }
-
-    private renderBoardCells() {
-        for (let row = 0; row < this.ROWS; row++) {
-            for (let col = 0; col < this.COLS; col++) {
-                const x = this.gridX + col * this.CELL_SIZE;
-                const y = this.gridY + row * this.CELL_SIZE;
-
-                const backgroundCell = this.add
-                    .rectangle(
-                        x,
-                        y,
-                        this.CELL_SIZE - 3,
-                        this.CELL_SIZE - 3,
-                        0x11100f,
-                        0.45
-                    )
-                    .setOrigin(0)
-                    .setStrokeStyle(1, 0x2a2926)
-                    .setDepth(2);
-
-                this.blockViews.push(backgroundCell);
-
-                const cellColor = this.board[row][col];
-
-                if (cellColor !== null) {
-                    const block = this.createBeveledBlock(
-                        x + this.CELL_SIZE / 2,
-                        y + this.CELL_SIZE / 2,
-                        this.CELL_SIZE - 4,
-                        cellColor,
-                        10
-                    );
-
-                    this.blockViews.push(block);
-                }
-            }
-        }
-    }
-
-    private renderActivePiece() {
-        if (!this.activePiece) return;
-
-        this.activePiece.shape.forEach((shapeRow, row) => {
-            shapeRow.forEach((value, col) => {
-                if (!value || !this.activePiece) return;
-
-                const boardRow = this.activePiece.row + row;
-                const boardCol = this.activePiece.col + col;
-
-                if (boardRow < 0) return;
-
-                const x = this.gridX + boardCol * this.CELL_SIZE;
-                const y = this.gridY + boardRow * this.CELL_SIZE;
-
-                const block = this.createBeveledBlock(
-                    x + this.CELL_SIZE / 2,
-                    y + this.CELL_SIZE / 2,
-                    this.CELL_SIZE - 4,
-                    this.activePiece.color,
-                    20
-                );
-
-                this.blockViews.push(block);
-            });
-        });
-    }
-
-    private renderNextPreview() {
-        this.nextPreviewViews.forEach((item) => {
-            item.destroy();
-        });
-
-        this.nextPreviewViews = [];
-
-        if (!this.nextPiece) return;
-
-        const previewCellSize = 30;
-
-        const shape = this.nextPiece.shape;
-        const shapeWidth = shape[0].length * previewCellSize;
-        const shapeHeight = shape.length * previewCellSize;
-
-        shape.forEach((shapeRow, row) => {
-            shapeRow.forEach((value, col) => {
-                if (!value || !this.nextPiece) return;
-
-                const x =
-                    this.NEXT_BOX_X -
-                    shapeWidth / 2 +
-                    col * previewCellSize +
-                    previewCellSize / 2;
-
-                const y =
-                    this.NEXT_BOX_Y -
-                    shapeHeight / 2 +
-                    row * previewCellSize +
-                    previewCellSize / 2;
-
-                const block = this.createBeveledBlock(
-                    x,
-                    y,
-                    previewCellSize - 4,
-                    this.nextPiece.color,
-                    35
-                );
-
-                this.nextPreviewViews.push(block);
-            });
+        this.tweens.add({
+            targets: [this.scoreText, this.linesText],
+            scale: 1.08,
+            duration: 80,
+            yoyo: true,
+            ease: "Back.easeOut",
         });
     }
 
@@ -799,7 +953,7 @@ export default class TetrisScene extends Phaser.Scene {
         y: number,
         size: number,
         color: number,
-        depth: number
+        depth: number,
     ) {
         const container = this.add.container(x, y).setDepth(depth);
 
@@ -812,7 +966,7 @@ export default class TetrisScene extends Phaser.Scene {
             size - 10,
             6,
             0xffffff,
-            0.35
+            0.35,
         );
 
         const highlightLeft = this.add.rectangle(
@@ -821,7 +975,7 @@ export default class TetrisScene extends Phaser.Scene {
             6,
             size - 10,
             0xffffff,
-            0.22
+            0.22,
         );
 
         const shadowBottom = this.add.rectangle(
@@ -830,7 +984,7 @@ export default class TetrisScene extends Phaser.Scene {
             size - 10,
             6,
             0x11100f,
-            0.45
+            0.45,
         );
 
         const shadowRight = this.add.rectangle(
@@ -839,7 +993,7 @@ export default class TetrisScene extends Phaser.Scene {
             6,
             size - 10,
             0x11100f,
-            0.45
+            0.45,
         );
 
         container.add([
@@ -879,6 +1033,27 @@ export default class TetrisScene extends Phaser.Scene {
         });
     }
 
+    private clearBlockViews() {
+        this.blockViews.forEach((block) => {
+            block.destroy();
+        });
+
+        this.blockViews = [];
+    }
+
+    private clearNextPreviewViews() {
+        this.nextPreviewViews.forEach((item) => {
+            item.destroy();
+        });
+
+        this.nextPreviewViews = [];
+    }
+
+    private clearRenderedObjects() {
+        this.clearBlockViews();
+        this.clearNextPreviewViews();
+    }
+
     private endGame() {
         if (this.gameOver) return;
 
@@ -891,7 +1066,7 @@ export default class TetrisScene extends Phaser.Scene {
                     score: this.score,
                     lines: this.lines,
                 },
-            })
+            }),
         );
 
         const cx = this.GAME_WIDTH / 2;

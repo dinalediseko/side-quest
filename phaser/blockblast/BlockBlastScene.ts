@@ -69,8 +69,11 @@ export default class BlockBlastScene extends Phaser.Scene {
     private readonly PREVIEW_SLOT_WIDTH = 290;
     private readonly PREVIEW_Y = 995;
 
-    private readonly PIECE_HIT_HALF = 130;
+    private readonly PIECE_HIT_HALF = 170;
     private readonly PIECE_FRAME_SIZE = 210;
+
+    // Keeps the dragged shape above the finger on touchscreen.
+    private readonly DRAG_Y_OFFSET = -175;
 
     private grid: number[][] = [];
     private cells: Phaser.GameObjects.Rectangle[][] = [];
@@ -81,6 +84,7 @@ export default class BlockBlastScene extends Phaser.Scene {
 
     private pieces: Piece[] = [];
     private renderedPieces: RenderedPiece[] = [];
+    private placementGhosts: Phaser.GameObjects.Rectangle[] = [];
 
     private selectedPieceIndex: number | null = null;
     private gameOver = false;
@@ -98,6 +102,7 @@ export default class BlockBlastScene extends Phaser.Scene {
         this.selectedPieceIndex = null;
         this.pieces = [];
         this.renderedPieces = [];
+        this.placementGhosts = [];
 
         this.gridX =
             (this.GAME_WIDTH -
@@ -110,6 +115,11 @@ export default class BlockBlastScene extends Phaser.Scene {
         this.createScoreText();
         this.generatePieces();
         this.setupDragEvents();
+
+        this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+            this.clearPlacementPreview();
+            this.clearRenderedPieces();
+        });
     }
 
     private drawBackground() {
@@ -118,7 +128,7 @@ export default class BlockBlastScene extends Phaser.Scene {
             this.GAME_HEIGHT / 2,
             this.GAME_WIDTH,
             this.GAME_HEIGHT,
-            0x11100f
+            0x11100f,
         );
 
         this.add
@@ -130,11 +140,21 @@ export default class BlockBlastScene extends Phaser.Scene {
                 strokeThickness: 8,
             })
             .setOrigin(0.5);
+
+        this.add
+            .text(this.GAME_WIDTH / 2, 132, "DRAG ABOVE YOUR FINGER. MATCH THE GHOST.", {
+                fontSize: "20px",
+                color: "#b9b9b3",
+                fontFamily: "monospace",
+                stroke: "#000000",
+                strokeThickness: 4,
+            })
+            .setOrigin(0.5);
     }
 
     private createScoreText() {
         this.scoreText = this.add
-            .text(this.GAME_WIDTH / 2, 145, "SCORE 0", {
+            .text(this.GAME_WIDTH / 2, 170, "SCORE 0", {
                 fontSize: "30px",
                 color: "#be001c",
                 fontFamily: "monospace",
@@ -162,13 +182,7 @@ export default class BlockBlastScene extends Phaser.Scene {
                 const y = this.gridY + row * (this.CELL_SIZE + this.CELL_GAP);
 
                 const cell = this.add
-                    .rectangle(
-                        x,
-                        y,
-                        this.CELL_SIZE,
-                        this.CELL_SIZE,
-                        0x2a2926
-                    )
+                    .rectangle(x, y, this.CELL_SIZE, this.CELL_SIZE, 0x2a2926)
                     .setOrigin(0)
                     .setStrokeStyle(3, 0x11100f);
 
@@ -180,12 +194,13 @@ export default class BlockBlastScene extends Phaser.Scene {
     private setupDragEvents() {
         this.input.dragDistanceThreshold = 0;
         this.input.dragTimeThreshold = 0;
+        this.input.topOnly = false;
 
         this.input.on(
             "dragstart",
             (
-                _pointer: Phaser.Input.Pointer,
-                gameObject: Phaser.GameObjects.GameObject
+                pointer: Phaser.Input.Pointer,
+                gameObject: Phaser.GameObjects.GameObject,
             ) => {
                 if (this.gameOver) return;
 
@@ -195,29 +210,25 @@ export default class BlockBlastScene extends Phaser.Scene {
 
                 this.selectPiece(index);
                 this.startDraggingPiece(index);
-            }
+
+                const rendered = this.renderedPieces[index];
+
+                if (!rendered) return;
+
+                rendered.container.setPosition(
+                    pointer.x,
+                    pointer.y + this.DRAG_Y_OFFSET,
+                );
+
+                this.updatePlacementPreview(rendered);
+            },
         );
 
         this.input.on(
             "drag",
             (
-                _pointer: Phaser.Input.Pointer,
+                pointer: Phaser.Input.Pointer,
                 gameObject: Phaser.GameObjects.GameObject,
-                dragX: number,
-                dragY: number
-            ) => {
-                if (this.gameOver) return;
-
-                const container = gameObject as Phaser.GameObjects.Container;
-                container.setPosition(dragX, dragY);
-            }
-        );
-
-        this.input.on(
-            "dragend",
-            (
-                _pointer: Phaser.Input.Pointer,
-                gameObject: Phaser.GameObjects.GameObject
             ) => {
                 if (this.gameOver) return;
 
@@ -225,8 +236,33 @@ export default class BlockBlastScene extends Phaser.Scene {
 
                 if (index === -1) return;
 
+                const container = gameObject as Phaser.GameObjects.Container;
+
+                container.setPosition(pointer.x, pointer.y + this.DRAG_Y_OFFSET);
+
+                const rendered = this.renderedPieces[index];
+
+                if (!rendered) return;
+
+                this.updatePlacementPreview(rendered);
+            },
+        );
+
+        this.input.on(
+            "dragend",
+            (
+                _pointer: Phaser.Input.Pointer,
+                gameObject: Phaser.GameObjects.GameObject,
+            ) => {
+                if (this.gameOver) return;
+
+                const index = this.findRenderedPieceIndex(gameObject);
+
+                if (index === -1) return;
+
+                this.clearPlacementPreview();
                 this.dropPiece(index);
-            }
+            },
         );
     }
 
@@ -237,11 +273,7 @@ export default class BlockBlastScene extends Phaser.Scene {
     private generatePieces() {
         this.clearRenderedPieces();
 
-        this.pieces = [
-            this.randomPiece(),
-            this.randomPiece(),
-            this.randomPiece(),
-        ];
+        this.pieces = [this.randomPiece(), this.randomPiece(), this.randomPiece()];
 
         this.pieces.forEach((piece, index) => {
             this.renderPiece(piece, index);
@@ -263,9 +295,9 @@ export default class BlockBlastScene extends Phaser.Scene {
                 -this.PIECE_HIT_HALF,
                 -this.PIECE_HIT_HALF,
                 hitSize,
-                hitSize
+                hitSize,
             ),
-            Phaser.Geom.Rectangle.Contains
+            Phaser.Geom.Rectangle.Contains,
         );
 
         this.input.setDraggable(container);
@@ -275,7 +307,7 @@ export default class BlockBlastScene extends Phaser.Scene {
             0,
             this.PIECE_FRAME_SIZE,
             this.PIECE_FRAME_SIZE,
-            0xefefe9
+            0xefefe9,
         );
 
         frame.setStrokeStyle(5, 0x11100f);
@@ -298,7 +330,7 @@ export default class BlockBlastScene extends Phaser.Scene {
                     this.PREVIEW_CELL_SIZE / 2,
                     this.PREVIEW_CELL_SIZE - 4,
                     0xbe001c,
-                    11
+                    11,
                 );
 
                 container.add(block);
@@ -326,7 +358,7 @@ export default class BlockBlastScene extends Phaser.Scene {
 
     private findRenderedPieceIndex(gameObject: Phaser.GameObjects.GameObject) {
         return this.renderedPieces.findIndex(
-            (rendered) => rendered.container === gameObject
+            (rendered) => rendered.container === gameObject,
         );
     }
 
@@ -344,9 +376,6 @@ export default class BlockBlastScene extends Phaser.Scene {
         if (!rendered) return;
 
         rendered.container.setDepth(100);
-
-        // Hide the preview box while dragging.
-        // The player only sees the actual blocks being moved.
         rendered.frame.setAlpha(0);
 
         this.tweens.killTweensOf(rendered.container);
@@ -362,18 +391,16 @@ export default class BlockBlastScene extends Phaser.Scene {
                 if (!currentRendered?.container.input) return;
 
                 const scaledHalf =
-                    this.PIECE_HIT_HALF *
-                    (this.CELL_SIZE / this.PREVIEW_CELL_SIZE);
+                    this.PIECE_HIT_HALF * (this.CELL_SIZE / this.PREVIEW_CELL_SIZE);
 
                 const scaledSize = scaledHalf * 2;
 
-                currentRendered.container.input.hitArea =
-                    new Phaser.Geom.Rectangle(
-                        -scaledHalf,
-                        -scaledHalf,
-                        scaledSize,
-                        scaledSize
-                    );
+                currentRendered.container.input.hitArea = new Phaser.Geom.Rectangle(
+                    -scaledHalf,
+                    -scaledHalf,
+                    scaledSize,
+                    scaledSize,
+                );
             },
         });
     }
@@ -390,23 +417,13 @@ export default class BlockBlastScene extends Phaser.Scene {
                 -this.PIECE_HIT_HALF,
                 -this.PIECE_HIT_HALF,
                 hitSize,
-                hitSize
+                hitSize,
             );
         }
 
+        const placement = this.getPlacementFromRenderedPiece(rendered);
+        const { row, col } = placement;
         const shape = rendered.piece.shape;
-        const step = this.CELL_SIZE + this.CELL_GAP;
-
-        const shapePixelWidth = shape[0].length * step - this.CELL_GAP;
-        const shapePixelHeight = shape.length * step - this.CELL_GAP;
-
-        const col = Math.round(
-            (rendered.container.x - shapePixelWidth / 2 - this.gridX) / step
-        );
-
-        const row = Math.round(
-            (rendered.container.y - shapePixelHeight / 2 - this.gridY) / step
-        );
 
         if (!this.canPlace(shape, row, col)) {
             this.shakeCamera();
@@ -444,6 +461,8 @@ export default class BlockBlastScene extends Phaser.Scene {
     }
 
     private resetPiecePosition(rendered: RenderedPiece) {
+        this.clearPlacementPreview();
+
         rendered.container.setDepth(10);
 
         this.tweens.killTweensOf(rendered.container);
@@ -482,11 +501,82 @@ export default class BlockBlastScene extends Phaser.Scene {
         });
     }
 
-    private canPlace(
-        shape: Shape,
-        startRow: number,
-        startCol: number
-    ): boolean {
+    private getPlacementFromRenderedPiece(rendered: RenderedPiece) {
+        const shape = rendered.piece.shape;
+        const step = this.CELL_SIZE + this.CELL_GAP;
+
+        const shapePixelWidth = shape[0].length * step - this.CELL_GAP;
+        const shapePixelHeight = shape.length * step - this.CELL_GAP;
+
+        const col = Math.round(
+            (rendered.container.x - shapePixelWidth / 2 - this.gridX) / step,
+        );
+
+        const row = Math.round(
+            (rendered.container.y - shapePixelHeight / 2 - this.gridY) / step,
+        );
+
+        return {
+            row,
+            col,
+        };
+    }
+
+    private updatePlacementPreview(rendered: RenderedPiece) {
+        this.clearPlacementPreview();
+
+        const placement = this.getPlacementFromRenderedPiece(rendered);
+        const { row, col } = placement;
+        const shape = rendered.piece.shape;
+
+        const canDrop = this.canPlace(shape, row, col);
+        const ghostColor = canDrop ? 0xefefe9 : 0xbe001c;
+        const ghostAlpha = canDrop ? 0.35 : 0.55;
+
+        shape.forEach((shapeRow, shapeRowIndex) => {
+            shapeRow.forEach((value, shapeColIndex) => {
+                if (!value) return;
+
+                const gridRow = row + shapeRowIndex;
+                const gridCol = col + shapeColIndex;
+
+                if (
+                    gridRow < 0 ||
+                    gridRow >= this.GRID_SIZE ||
+                    gridCol < 0 ||
+                    gridCol >= this.GRID_SIZE
+                ) {
+                    return;
+                }
+
+                const cell = this.cells[gridRow][gridCol];
+
+                const ghost = this.add
+                    .rectangle(
+                        cell.x + this.CELL_SIZE / 2,
+                        cell.y + this.CELL_SIZE / 2,
+                        this.CELL_SIZE - 8,
+                        this.CELL_SIZE - 8,
+                        ghostColor,
+                        ghostAlpha,
+                    )
+                    .setStrokeStyle(4, canDrop ? 0xbe001c : 0xefefe9)
+                    .setDepth(35);
+
+                this.placementGhosts.push(ghost);
+            });
+        });
+    }
+
+    private clearPlacementPreview() {
+        this.placementGhosts.forEach((ghost) => {
+            ghost.destroy();
+        });
+
+        this.placementGhosts = [];
+    }
+
+    private canPlace(shape: Shape, startRow: number, startCol: number): boolean {
         for (let row = 0; row < shape.length; row++) {
             for (let col = 0; col < shape[row].length; col++) {
                 if (!shape[row][col]) continue;
@@ -523,14 +613,13 @@ export default class BlockBlastScene extends Phaser.Scene {
 
                 const cell = this.cells[gridRow][gridCol];
 
-                this.boardBlocks[gridRow][gridCol] =
-                    this.createBeveledBlock(
-                        cell.x + this.CELL_SIZE / 2,
-                        cell.y + this.CELL_SIZE / 2,
-                        this.CELL_SIZE - 6,
-                        0xbe001c,
-                        8
-                    );
+                this.boardBlocks[gridRow][gridCol] = this.createBeveledBlock(
+                    cell.x + this.CELL_SIZE / 2,
+                    cell.y + this.CELL_SIZE / 2,
+                    this.CELL_SIZE - 6,
+                    0xbe001c,
+                    8,
+                );
             }
         }
     }
@@ -618,7 +707,7 @@ export default class BlockBlastScene extends Phaser.Scene {
                     cell.y + this.CELL_SIZE / 2,
                     this.CELL_SIZE,
                     this.CELL_SIZE,
-                    0xefefe9
+                    0xefefe9,
                 )
                 .setStrokeStyle(4, 0xbe001c)
                 .setDepth(40);
@@ -669,7 +758,7 @@ export default class BlockBlastScene extends Phaser.Scene {
         y: number,
         size: number,
         color = 0xbe001c,
-        depth = 10
+        depth = 10,
     ): Phaser.GameObjects.Container {
         const container = this.add.container(x, y);
         container.setDepth(depth);
@@ -683,7 +772,7 @@ export default class BlockBlastScene extends Phaser.Scene {
             size - 10,
             6,
             0xefefe9,
-            0.35
+            0.35,
         );
 
         const highlightLeft = this.add.rectangle(
@@ -692,7 +781,7 @@ export default class BlockBlastScene extends Phaser.Scene {
             6,
             size - 10,
             0xefefe9,
-            0.25
+            0.25,
         );
 
         const shadowBottom = this.add.rectangle(
@@ -701,7 +790,7 @@ export default class BlockBlastScene extends Phaser.Scene {
             size - 10,
             6,
             0x740011,
-            0.85
+            0.85,
         );
 
         const shadowRight = this.add.rectangle(
@@ -710,7 +799,7 @@ export default class BlockBlastScene extends Phaser.Scene {
             6,
             size - 10,
             0x740011,
-            0.85
+            0.85,
         );
 
         container.add([
@@ -726,18 +815,13 @@ export default class BlockBlastScene extends Phaser.Scene {
 
     private showBoardClearBonus() {
         const bonusText = this.add
-            .text(
-                this.GAME_WIDTH / 2,
-                this.gridY + 300,
-                "BOARD CLEAR +500",
-                {
-                    fontSize: "34px",
-                    color: "#efefe9",
-                    fontFamily: "monospace",
-                    stroke: "#be001c",
-                    strokeThickness: 6,
-                }
-            )
+            .text(this.GAME_WIDTH / 2, this.gridY + 300, "BOARD CLEAR +500", {
+                fontSize: "34px",
+                color: "#efefe9",
+                fontFamily: "monospace",
+                stroke: "#be001c",
+                strokeThickness: 6,
+            })
             .setOrigin(0.5)
             .setDepth(60)
             .setAlpha(0)
@@ -774,7 +858,7 @@ export default class BlockBlastScene extends Phaser.Scene {
                 detail: {
                     score: this.score,
                 },
-            })
+            }),
         );
 
         const cx = this.GAME_WIDTH / 2;

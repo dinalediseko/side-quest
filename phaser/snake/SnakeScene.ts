@@ -236,40 +236,71 @@ export default class SnakeScene extends Phaser.Scene {
     }
 
     private createControls() {
-        // Board bottom is 220 + 20 * 46 = 1140.
-        // Controls now sit safely below the board.
-        const y = 1235;
+        const centerX = this.GAME_WIDTH / 2;
+        const centerY = 1280;
+        const offset = 68;
 
-        this.createControlButton(220, y, "LEFT", () => this.queueDirection("LEFT"));
-        this.createControlButton(400, y, "UP", () => this.queueDirection("UP"));
-        this.createControlButton(580, y, "DOWN", () => this.queueDirection("DOWN"));
-        this.createControlButton(760, y, "RIGHT", () =>
-            this.queueDirection("RIGHT")
+        // Center hub
+        this.add
+            .rectangle(centerX, centerY, 76, 76, 0x11100f)
+            .setStrokeStyle(5, 0xb9b9b3)
+            .setDepth(39);
+
+        this.createDpadButton(centerX, centerY - offset, "UP", () =>
+            this.queueDirection("UP"),
+        );
+
+        this.createDpadButton(centerX, centerY + offset, "DOWN", () =>
+            this.queueDirection("DOWN"),
+        );
+
+        this.createDpadButton(centerX - offset, centerY, "LEFT", () =>
+            this.queueDirection("LEFT"),
+        );
+
+        this.createDpadButton(centerX + offset, centerY, "RIGHT", () =>
+            this.queueDirection("RIGHT"),
         );
     }
 
-    private createControlButton(
+    private createDpadButton(
         x: number,
         y: number,
-        label: string,
-        action: () => void
+        direction: Direction,
+        action: () => void,
     ) {
         const button = this.add
-            .rectangle(x, y, 155, 70, 0x2a2926)
+            .rectangle(x, y, 76, 76, 0x2a2926)
             .setStrokeStyle(5, 0xb9b9b3)
             .setInteractive({ useHandCursor: true })
             .setDepth(40);
 
-        this.add
-            .text(x, y, label, {
-                fontSize: "18px",
-                color: "#efefe9",
-                fontFamily: "monospace",
-                stroke: "#000000",
-                strokeThickness: 4,
-            })
-            .setOrigin(0.5)
+        const arrow = this.add
+            .triangle(
+                x,
+                y,
+                0,
+                -18,
+                22,
+                18,
+                -22,
+                18,
+                0xefefe9,
+            )
+            .setStrokeStyle(3, 0x11100f)
             .setDepth(41);
+
+        if (direction === "RIGHT") {
+            arrow.setRotation(Math.PI / 2);
+        }
+
+        if (direction === "DOWN") {
+            arrow.setRotation(Math.PI);
+        }
+
+        if (direction === "LEFT") {
+            arrow.setRotation(-Math.PI / 2);
+        }
 
         button.on("pointerover", () => {
             button.setFillStyle(0x11100f);
@@ -285,7 +316,7 @@ export default class SnakeScene extends Phaser.Scene {
                 _pointer: Phaser.Input.Pointer,
                 _localX: number,
                 _localY: number,
-                event: Phaser.Types.Input.EventData
+                event: Phaser.Types.Input.EventData,
             ) => {
                 event.stopPropagation();
 
@@ -293,7 +324,7 @@ export default class SnakeScene extends Phaser.Scene {
 
                 this.pointerStartedOnBoard = false;
                 action();
-            }
+            },
         );
     }
 

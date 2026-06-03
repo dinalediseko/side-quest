@@ -47,6 +47,6 @@ export const games: GameConfig[] = [
     icon: "circle-dot",
     type: "phaser",
     route: "/games/ballz",
-    description: "Aim balls, break bricks, and stop them reaching the bottom.",
+    description: "Move the paddle, catch the ball, and break bricks for points.",
   },
 ];
