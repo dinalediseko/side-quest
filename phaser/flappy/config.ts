@@ -4,36 +4,34 @@ import PreloadScene from "./PreloadScene";
 import FlappyScene from "./FlappyScene";
 
 export const flappyConfig: Phaser.Types.Core.GameConfig = {
-    type: Phaser.AUTO,
+  type: Phaser.AUTO,
 
+  width: 960,
+  height: 1400,
+
+  parent: "game-container",
+
+  backgroundColor: "#000000",
+
+  scale: {
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
     width: 960,
     height: 1400,
+  },
 
-    parent: "game-container",
+  physics: {
+    default: "arcade",
 
-    backgroundColor: "#000000",
+    arcade: {
+      gravity: {
+        x: 0,
+        y: 0,
+      },
 
-    scale: {
-        mode: Phaser.Scale.FIT,
-        autoCenter: Phaser.Scale.CENTER_BOTH,
-        width: 960,
-        height: 1400
+      debug: false,
     },
+  },
 
-    physics: {
-        default: "arcade",
-
-        arcade: {
-            gravity: {
-                y: 0
-            },
-
-            debug: false
-        }
-    },
-
-    scene: [
-        PreloadScene,
-        FlappyScene
-    ]
+  scene: [PreloadScene, FlappyScene],
 };
